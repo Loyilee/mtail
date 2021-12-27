@@ -8,6 +8,7 @@ package metrics
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/bluele/gcache"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -88,10 +89,11 @@ type Metric struct {
 	Type           Type
 	Hidden         bool          `json:",omitempty"`
 	Keys           []string      `json:",omitempty"`
-	LabelValues    []*LabelValue `json:",omitempty"`
-	labelValuesMap map[string]*LabelValue
+	//LabelValues    []*LabelValue `json:",omitempty"`
 	Source         string        `json:",omitempty"`
 	Buckets        []datum.Range `json:",omitempty"`
+	Limit          int64         `json:",omitempty"`
+	cache          gcache.Cache
 }
 
 // NewMetric returns a new empty metric of dimension len(keys).
@@ -109,8 +111,7 @@ func NewMetric(name string, prog string, kind Kind, typ Type, keys ...string) *M
 func newMetric(keyLen int) *Metric {
 	return &Metric{
 		Keys:           make([]string, keyLen),
-		LabelValues:    make([]*LabelValue, 0),
-		labelValuesMap: make(map[string]*LabelValue),
+		//LabelValues:    make([]*LabelValue, 0),
 	}
 }
 
@@ -129,17 +130,17 @@ func (m *Metric) AppendLabelValue(lv *LabelValue) error {
 	if len(lv.Labels) != len(m.Keys) {
 		return errors.Errorf("Label values requested (%q) not same length as keys for metric %v", lv.Labels, m)
 	}
-	m.LabelValues = append(m.LabelValues, lv)
+	//m.LabelValues = append(m.LabelValues, lv)
 	k := buildLabelValueKey(lv.Labels)
-	m.labelValuesMap[k] = lv
+	m.cache.Set(k, *lv)
 	return nil
 }
 
 func (m *Metric) FindLabelValueOrNil(labelvalues []string) *LabelValue {
 	k := buildLabelValueKey(labelvalues)
-	lv, ok := m.labelValuesMap[k]
-	if ok {
-		return lv
+	lv, err := m.cache.Get(k)
+	if err != nil && lv != nil {
+		return lv.(*LabelValue)
 	}
 	return nil
 }
@@ -185,17 +186,18 @@ func (m *Metric) RemoveDatum(labelvalues ...string) error {
 	m.Lock()
 	defer m.Unlock()
 	k := buildLabelValueKey(labelvalues)
-	olv, ok := m.labelValuesMap[k]
-	if ok {
-		for i, lv := range m.LabelValues {
-			if lv == olv {
-				// remove from the slice
-				m.LabelValues = append(m.LabelValues[:i], m.LabelValues[i+1:]...)
-				delete(m.labelValuesMap, k)
-				break
-			}
-		}
-	}
+	//olv, err := m.cache.Get(k)
+	//if err != nil {
+	//	for i, lv := range m.LabelValues {
+	//		if lv == olv {
+	//			// remove from the slice
+	//			m.LabelValues = append(m.LabelValues[:i], m.LabelValues[i+1:]...)
+	//			m.cache.Remove(k)
+	//			break
+	//		}
+	//	}
+	//}
+	m.cache.Remove(k)
 	return nil
 }
 
@@ -231,7 +233,8 @@ func zip(keys []string, values []string) map[string]string {
 // Metric.  It emits them onto the provided channel, then closes the channel to
 // signal completion.
 func (m *Metric) EmitLabelSets(c chan *LabelSet) {
-	for _, lv := range m.LabelValues {
+	for _, v := range m.cache.GetALL(false) {
+		lv := v.(*LabelValue)
 		ls := &LabelSet{zip(m.Keys, lv.Labels), lv.Value}
 		c <- ls
 	}
@@ -277,7 +280,7 @@ func (lv *LabelValue) UnmarshalJSON(b []byte) error {
 func (m *Metric) String() string {
 	m.RLock()
 	defer m.RUnlock()
-	return fmt.Sprintf("Metric: name=%s program=%s kind=%v type=%s hidden=%v keys=%v labelvalues=%v source=%s buckets=%v", m.Name, m.Program, m.Kind, m.Type, m.Hidden, m.Keys, m.LabelValues, m.Source, m.Buckets)
+	return fmt.Sprintf("Metric: name=%s program=%s kind=%v type=%s hidden=%v keys=%v labelvalues=%v source=%s buckets=%v", m.Name, m.Program, m.Kind, m.Type, m.Hidden, m.Keys, m.cache.GetALL(false), m.Source, m.Buckets)
 }
 
 // SetSource sets the source of a metric, describing where in user programmes it was defined.
@@ -286,3 +289,24 @@ func (m *Metric) SetSource(source string) {
 	defer m.Unlock()
 	m.Source = source
 }
+
+func (m *Metric) LabelValues() []*LabelValue {
+	labelValues := make([]*LabelValue, m.cache.Len(false))
+	for _, v := range m.cache.GetALL(false) {
+		lv := v.(*LabelValue)
+		labelValues = append(labelValues, lv)
+	}
+	return labelValues
+}
+
+func (m *Metric) SetLimit(limit int64) {
+	m.Lock()
+	defer m.Unlock()
+	m.Limit = limit
+	if limit > 0 {
+		m.cache = gcache.New(int(limit)).LFU().Build()
+	} else {
+		m.cache = gcache.New(100000).LFU().Build()
+	}
+}
+

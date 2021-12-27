@@ -103,6 +103,7 @@ func (c *codegen) VisitBefore(node ast.Node) (ast.Visitor, ast.Node) {
 		}
 		m := metrics.NewMetric(name, c.name, n.Kind, dtyp, n.Keys...)
 		m.SetSource(n.Pos().String())
+		m.SetLimit(n.Limit)
 		// Scalar counters can be initialized to zero.  Dimensioned counters we
 		// don't know the values of the labels yet.  Gauges and Timers we can't
 		// assume start at zero.

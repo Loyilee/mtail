@@ -212,6 +212,7 @@ type VarDecl struct {
 	Kind         metrics.Kind
 	ExportedName string
 	Symbol       *symbol.Symbol
+	Limit        int64
 }
 
 func (n *VarDecl) Pos() *position.Position {

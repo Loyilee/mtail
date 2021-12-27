@@ -56,7 +56,7 @@ func (e *Exporter) HandleGraphite(w http.ResponseWriter, r *http.Request) {
 func metricToGraphite(hostname string, m *metrics.Metric, l *metrics.LabelSet, _ time.Duration) string {
 	var b strings.Builder
 	if m.Kind == metrics.Histogram && m.Type == metrics.Buckets {
-		d := m.LabelValues[0].Value
+		d := m.LabelValues()[0].Value
 		buckets := datum.GetBuckets(d)
 		for r, c := range buckets.GetBuckets() {
 			var binName string

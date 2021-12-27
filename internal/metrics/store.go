@@ -68,7 +68,7 @@ func (s *Store) Add(m *Metric) error {
 
 			// Otherwise, copy everything into the new metric
 			glog.V(2).Infof("Found duped metric: %d", dupeIndex)
-			for j, oldLabel := range v.LabelValues {
+			for j, oldLabel := range v.LabelValues() {
 				glog.V(2).Infof("Labels: %d %s", j, oldLabel.Labels)
 				d, err := v.GetDatum(oldLabel.Labels...)
 				if err != nil {
@@ -157,7 +157,7 @@ func (s *Store) Gc() error {
 	glog.Info("Running Store.Expire()")
 	now := time.Now()
 	return s.Range(func(m *Metric) error {
-		for _, lv := range m.LabelValues {
+		for _, lv := range m.LabelValues() {
 			if lv.Expiry <= 0 {
 				continue
 			}

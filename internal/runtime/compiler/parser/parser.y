@@ -41,13 +41,14 @@ import (
 %type <flag> metric_hide_spec
 %type <op> rel_op shift_op bitwise_op logical_op add_op mul_op match_op postfix_op
 %type <floats> metric_buckets_spec metric_buckets_list
+%type <intVal> metric_limit_spec
 // Tokens and types are defined here.
 // Invalid input
 %token <text> INVALID
 // Types
 %token COUNTER GAUGE TIMER TEXT HISTOGRAM
 // Reserved words
-%token AFTER AS BY CONST HIDDEN DEF DEL NEXT OTHERWISE ELSE STOP BUCKETS
+%token AFTER AS BY CONST HIDDEN DEF DEL NEXT OTHERWISE ELSE STOP BUCKETS LIMIT
 // Builtins
 %token <text> BUILTIN
 // Literals: re2 syntax regular expression, quoted strings, regex capture group
@@ -544,6 +545,11 @@ metric_decl_attr_spec
     $$ = $1
     $$.(*ast.VarDecl).Buckets = $2
   }
+  | metric_decl_attr_spec metric_limit_spec
+  {
+    $$ = $1
+    $$.(*ast.VarDecl).Limit = $2
+  }
   | metric_name_spec
   {
     $$ = $1
@@ -604,6 +610,14 @@ metric_by_expr_list
   {
     $$ = $1
     $$ = append($$, $3)
+  }
+  ;
+
+/* Limit specification describes size for a multidimensional variable. */
+metric_limit_spec
+  : LIMIT INTLITERAL
+  {
+   $$ = $2
   }
   ;
 

@@ -50,18 +50,18 @@ func Less(m1, m2 *Metric) bool {
 			return false
 		}
 	}
-	for x, lv := range m1.LabelValues {
-		if len(lv.Labels) < len(m2.LabelValues[x].Labels) {
+	for x, lv := range m1.LabelValues() {
+		if len(lv.Labels) < len(m2.LabelValues()[x].Labels) {
 			return true
 		}
-		if len(lv.Labels) > len(m2.LabelValues[x].Labels) {
+		if len(lv.Labels) > len(m2.LabelValues()[x].Labels) {
 			return false
 		}
 		for y, k := range lv.Labels {
-			if k < m2.LabelValues[x].Labels[y] {
+			if k < m2.LabelValues()[x].Labels[y] {
 				return true
 			}
-			if k > m2.LabelValues[x].Labels[y] {
+			if k > m2.LabelValues()[x].Labels[y] {
 				return false
 			}
 		}

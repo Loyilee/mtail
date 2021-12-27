@@ -35,6 +35,7 @@ var keywords = map[string]Kind{
 	"stop":      STOP,
 	"text":      TEXT,
 	"timer":     TIMER,
+	"limit":     LIMIT,
 }
 
 // List of builtin functions.  Keep this list sorted!
