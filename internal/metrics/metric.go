@@ -138,8 +138,8 @@ func (m *Metric) AppendLabelValue(lv *LabelValue) error {
 
 func (m *Metric) FindLabelValueOrNil(labelvalues []string) *LabelValue {
 	k := buildLabelValueKey(labelvalues)
-	lv, err := m.cache.Get(k)
-	if err != nil && lv != nil {
+	lv, _ := m.cache.Get(k)
+	if lv != nil {
 		return lv.(*LabelValue)
 	}
 	return nil
